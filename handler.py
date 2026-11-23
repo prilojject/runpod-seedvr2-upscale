@@ -159,6 +159,8 @@ def _handle(job: dict) -> dict[str, Any]:
 
     result["upscale"] = cap
     result["gpu"] = gpu_info() or gpu
+    if cap.get("apex_fallback"):
+        result["warnings"].append(cap["apex_fallback"])
 
     # Copy official outputs into the persistent run dir (same basenames).
     dest_media = os.path.join(run_dir, "output")

@@ -23,6 +23,7 @@ Wrap official `projects/inference_seedvr2_3b.py` (optionally `_7b.py`) in-proces
 - `refresh_worker=false`, `containerDiskInGb=80`
 - The wrapper **must** pad `fps_lists` for image-only batches (official `zip(..., fps_lists)` otherwise writes nothing)
 - Force `use_colorfix=False`
+- Official apex wheel is **sm_90 only** (H100). On other GPUs (including 4090 sm_89) the wrapper remaps `fusedln`/`fusedrms` to PyTorch LayerNorm/RMSNorm before `configure_runner`. Patch both `normalization.py` and the bound name in `nadit.py`.
 - Custom text prompts are ignored (baked `pos_emb.pt` / `neg_emb.pt`)
 - 7B is an option only for 48 GB+; do not smoke it and do not make it the default
 - Official long 720p video (100×720×1280) is documented on H100 80 GB — do not promise it on a 4090

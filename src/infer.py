@@ -45,6 +45,7 @@ _FPS_PATCH = (
 _RUNNER = None
 _RUNNER_KEY: tuple | None = None
 _OFFICIAL_MOD: ModuleType | None = None
+_NORM_NOTE: str | None = None
 
 
 class InferError(RuntimeError):
@@ -243,6 +244,83 @@ def _idempotent_init_torch(mod: ModuleType) -> None:
         mod.init_torch = _init_once  # type: ignore[assignment]
 
 
+
+def apex_fused_norm_supported(device_index: int = 0) -> bool:
+    """Official SeedVR2-3B apex wheel ships only sm_90 (H100) kernels.
+
+    A 4090 (sm_89) will load the 3B weights and then fail at the first
+    FusedLayerNorm / FusedRMSNorm with "no kernel image is available".
+    """
+    try:
+        import glob
+        import importlib.util
+        import torch
+        if not torch.cuda.is_available():
+            return False
+        cap = torch.cuda.get_device_capability(device_index)
+        token = f"sm_{cap[0]}{cap[1]}".encode()
+        roots: list[str] = []
+        spec = importlib.util.find_spec("apex")
+        if spec and spec.origin:
+            roots.append(os.path.dirname(spec.origin))
+            roots.append(os.path.dirname(os.path.dirname(spec.origin)))
+        hits = []
+        for root in roots:
+            hits.extend(glob.glob(os.path.join(root, "fused_layer_norm_cuda*.so")))
+            hits.extend(glob.glob(os.path.join(root, "**", "fused_layer_norm_cuda*.so"), recursive=True))
+        if not hits:
+            return False
+        data = open(hits[0], "rb").read()
+        return token in data
+    except Exception:
+        return False
+
+
+def patch_fused_norms_if_needed() -> str | None:
+    """If apex fused kernels cannot run on this GPU, use PyTorch LayerNorm / RMSNorm.
+
+    Official get_norm_layer("fusedln"|"fusedrms") always imports apex. The
+    official wheel is H100-only, so the 4090 smoke path must remap.
+    """
+    if apex_fused_norm_supported():
+        return None
+    try:
+        import models.dit.nadit as dit_nadit
+        import models.dit.normalization as dit_norm
+        import models.dit_v2.nadit as dit_v2_nadit
+        import models.dit_v2.normalization as dit_v2_norm
+    except Exception as exc:
+        log.warning("could not import official norm helpers to patch apex: %s", exc)
+        return "apex fused norms likely unsupported; official import patch failed"
+    # nadit.py does `from .normalization import get_norm_layer`, so patch both
+    # the definition module and the already-bound name.
+    pairs = (
+        (dit_norm, (dit_norm, dit_nadit)),
+        (dit_v2_norm, (dit_v2_norm, dit_v2_nadit)),
+    )
+    for src, targets in pairs:
+        orig = src.get_norm_layer
+
+        def _wrap(orig_fn=orig):
+            def wrapped(norm_type):
+                if norm_type == "fusedln":
+                    norm_type = "layer"
+                elif norm_type == "fusedrms":
+                    norm_type = "rms"
+                return orig_fn(norm_type)
+            return wrapped
+
+        patched = _wrap()
+        for mod in targets:
+            mod.get_norm_layer = patched  # type: ignore[assignment]
+    msg = (
+        "official apex wheel has no kernels for this GPU; "
+        "using PyTorch LayerNorm/RMSNorm instead of fusedln/fusedrms"
+    )
+    log.warning(msg)
+    return msg
+
+
 def _get_runner(mod: ModuleType, model: str, sp_size: int):
     global _RUNNER, _RUNNER_KEY
     key = (model, sp_size)
@@ -250,6 +328,10 @@ def _get_runner(mod: ModuleType, model: str, sp_size: int):
         return _RUNNER
     _prepare_distributed_env()
     _idempotent_init_torch(mod)
+    global _NORM_NOTE
+    _NORM_NOTE = patch_fused_norms_if_needed()
+    if _NORM_NOTE:
+        log.warning("%s", _NORM_NOTE)
     cwd = os.getcwd()
     try:
         os.chdir(SEEDVR_DIR)
@@ -323,7 +405,7 @@ def run_upscale(
             "official loop produced no output files "
             "(image-only fps_lists bug should have been patched; check logs)"
         )
-    return {
+    out = {
         "output_dir": output_dir,
         "files": [os.path.basename(p) for p in written],
         "count": len(written),
@@ -332,3 +414,6 @@ def run_upscale(
         "sample_steps": int(cfg.sample_steps),
         "dtype": "bfloat16",
     }
+    if _NORM_NOTE:
+        out["apex_fallback"] = _NORM_NOTE
+    return out

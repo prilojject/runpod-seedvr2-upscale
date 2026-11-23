@@ -97,6 +97,8 @@ Input priority is job input > environment (Hub form) > defaults. Never put token
 
 ## FAQ
 
+**The official apex wheel and a 4090.** The prebuilt `apex-0.1-cp310-cp310-linux_x86_64.whl` in the SeedVR2-3B repo contains fused LayerNorm / RMSNorm kernels for **sm_90 (H100) only**. On an RTX 4090 (sm_89) the 3B weights load, then the first fused norm fails with `CUDA error: no kernel image is available for execution on the device`. This worker detects that and falls back to PyTorch `LayerNorm` / `RMSNorm` so the official 3B script can still run on a 4090. On H100 the official fused kernels are used unchanged.
+
 **Will a 100-frame 720p video fit on a 4090?** Not as a guarantee of the official script. The official README documents that regime on 1× H100 80 GB. This listing smokes a small photo at a moderate `res_h`/`res_w` on a 4090. Community ComfyUI tiling / FP8 / GGUF / BlockSwap is not mixed into the official path.
 
 **Why is there no color fix?** The usual `color_fix.py` is S-Lab License 1.0, non-commercial. It is not included.
