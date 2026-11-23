@@ -1,0 +1,28 @@
+# prilojject/runpod-seedvr2-upscale
+
+> Runpod Serverless worker that batch-upscales videos and photos with official SeedVR2-3B (one-step, bf16 autocast, ~13.57 GiB weights, default GPU RTX 4090 24 GB for a small photo). Input: image_url and/or video_url and/or a zip. Output: same-type files plus results.json. Headless official projects/inference_seedvr2_3b.py. Gradio and ComfyUI are never started. This is not SeedVR v1, not a ComfyUI port, and not a LoRA trainer or captioner.
+
+SeedVR / SeedVR2 code and the 3B/7B weights are Apache-2.0 (© 2025 ByteDance Seed). The worker code is MIT. Upstream code is pinned to SHA e4de8c24441a67e1b7df56abea10645059bb1185. Weights: ByteDance-Seed/SeedVR2-3B @ 37255ff8cccfb01071b87f635a5948ca8d53117c (~13.57 GiB, public, not baked into the image, cached on /runpod-volume/seedvr2/models/). Stack is Python 3.10 + torch 2.4.0+cu121 + official apex cp310 wheel (not torch 2.3.0 from upstream requirements.txt). color_fix.py (S-Lab License 1.0, non-commercial) is not shipped. Official long 720p video (100×720×1280) is documented on H100 80 GB, not as a 4090 guarantee. Prompts are baked in pos_emb.pt / neg_emb.pt. The wrapper patches the official image-only fps_lists write bug.
+
+## Docs
+
+- README.md — what you send/get, defaults, license, FAQ
+- AGENTS.md — constraints for automated changes
+- openapi.yaml — job input / output schema
+- NOTICE — MIT vs Apache-2.0 for code and weights; why color fix is absent
+- examples/SOURCES.md — public-domain NASA source for tiny_pd.png
+
+## Default job
+
+```json
+{
+  "input": {
+    "image_url": "https://example.com/photo.png",
+    "model": "3b",
+    "res_h": 720,
+    "res_w": 1280
+  }
+}
+```
+
+refresh_worker is false so the model stays in memory. Do not accept tokens in the job input. Do not add Gradio, ComfyUI, SeedVR v1 scripts, or color_fix.py.

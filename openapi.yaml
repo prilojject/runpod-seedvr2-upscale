@@ -1,0 +1,123 @@
+openapi: 3.0.3
+info:
+  title: SeedVR2 Upscale for Runpod Serverless
+  version: 1.0.0
+  description: |
+    Headless official SeedVR2-3B batch upscale of videos and photos.
+    Gradio and ComfyUI are never started. SeedVR v1 scripts are never called.
+  license:
+    name: MIT
+    url: https://github.com/prilojject/runpod-seedvr2-upscale/blob/main/LICENSE
+paths:
+  /run:
+    post:
+      summary: Submit an upscale job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobRequest'
+      responses:
+        '200':
+          description: Job accepted or completed (sync / local)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobOutput'
+components:
+  schemas:
+    JobRequest:
+      type: object
+      properties:
+        input:
+          $ref: '#/components/schemas/JobInput'
+    JobInput:
+      type: object
+      description: Job input (priority over env). Tokens are forbidden here.
+      properties:
+        image_url:
+          type: string
+          format: uri
+        video_url:
+          type: string
+          format: uri
+        dataset_url:
+          type: string
+          format: uri
+        model:
+          type: string
+          enum: [3b, 7b]
+          default: 3b
+        model_revision:
+          type: string
+        res_h:
+          type: integer
+          default: 720
+        res_w:
+          type: integer
+          default: 1280
+        scale:
+          type: number
+          description: Optional helper; computes res_h/res_w from the first input if res_* were not set in the job input.
+        seed:
+          type: integer
+          default: 666
+        out_fps:
+          type: number
+        sp_size:
+          type: integer
+          default: 1
+        sample_steps:
+          type: integer
+          default: 1
+        hf_repo_id:
+          type: string
+        upload_url:
+          type: string
+          format: uri
+        run_name:
+          type: string
+        dry_run:
+          type: boolean
+          default: false
+        preset:
+          type: string
+          enum: [default, photo, quick, video]
+    JobOutput:
+      type: object
+      properties:
+        status:
+          type: string
+        worker_version:
+          type: string
+        run_name:
+          type: string
+        gpu:
+          type: object
+        config:
+          type: object
+          description: Public config (model, revision, dtype, res_*, seed, steps). No secrets. upload_url is redacted.
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              file: { type: string }
+              type: { type: string, enum: [image, video, file] }
+              width: { type: integer }
+              height: { type: integer }
+              size_bytes: { type: integer }
+              status: { type: string }
+        artifacts:
+          type: object
+        warnings:
+          type: array
+          items: { type: string }
+        elapsed_seconds:
+          type: number
+        refresh_worker:
+          type: boolean
+          description: Always false so the model stays in memory.
+        error:
+          type: string

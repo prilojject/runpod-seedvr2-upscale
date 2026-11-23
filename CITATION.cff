@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: SeedVR2 Upscale for Runpod Serverless
+message: If you use this worker, please cite it and upstream SeedVR / SeedVR2.
+type: software
+authors:
+  - name: prilojject
+license: MIT
+repository-code: https://github.com/prilojject/runpod-seedvr2-upscale
+url: https://prilojject.github.io/runpod-seedvr2-upscale/
+abstract: >-
+  A Runpod Serverless worker that batch-upscales videos and photos with
+  official SeedVR2-3B (one-step diffusion, bfloat16 autocast, results.json).
+keywords:
+  - seedvr2
+  - upscale
+  - video-to-video
+  - runpod
+  - serverless
+references:
+  - type: software
+    title: SeedVR
+    authors:
+      - name: ByteDance Seed
+    repository-code: https://github.com/ByteDance-Seed/SeedVR
+    license: Apache-2.0
+  - type: software
+    title: SeedVR2-3B
+    authors:
+      - name: ByteDance Seed
+    url: https://huggingface.co/ByteDance-Seed/SeedVR2-3B
+    license: Apache-2.0

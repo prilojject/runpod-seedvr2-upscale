@@ -1,0 +1,44 @@
+This worker (prilojject/runpod-seedvr2-upscale) is licensed under the MIT License.
+That license covers the worker code in this repository. It does **not** replace
+the license of upstream SeedVR / SeedVR2 code or weights.
+
+Upstream code
+-------------
+This worker wraps official projects/inference_seedvr2_3b.py (and optionally
+inference_seedvr2_7b.py) from ByteDance-Seed/SeedVR (Apache License 2.0,
+© 2025 seed / ByteDance Seed), pinned to SHA
+e4de8c24441a67e1b7df56abea10645059bb1185:
+https://github.com/ByteDance-Seed/SeedVR
+
+The official upstream LICENSE is copied at LICENSE.upstream. The official
+README states: "SeedVR and SeedVR2 are licensed under the Apache 2.0."
+
+SeedVR v1 scripts (projects/inference_seedvr_3b.py and
+projects/inference_seedvr_7b.py) are never imported or executed.
+
+color_fix.py from pkuliyi2015/sd-webui-stablesr is **not** shipped. That file
+is licensed under the S-Lab License 1.0 (non-commercial only) and must not
+appear in a commercial Hub listing. Official SeedVR already treats color fix
+as optional (`if os.path.exists(...)`; otherwise "Color fix is not avaliable!").
+This worker forces `use_colorfix=False`.
+
+Weights
+-------
+Default weights are downloaded at runtime from the public Hugging Face catalog
+ByteDance-Seed/SeedVR2-3B (revision 37255ff8cccfb01071b87f635a5948ca8d53117c).
+The Hugging Face model card marks them `license: apache-2.0` and `gated: false`.
+The weight repository does not ship a LICENSE file (raw 404); this NOTICE and
+the README record Apache-2.0 and attribute ByteDance Seed. Optional SeedVR2-7B
+weights (revision eb0c4281d41ba3767d4f14370f0e37e9e9180c16) use the same
+license. The 7B-sharp checkpoint is not downloaded with the 7B option. Weights
+are **not** baked into the image.
+
+The official prebuilt apex wheel (`apex-0.1-cp310-cp310-linux_x86_64.whl`,
+python=3.10, torch=2.4.0, cuda=12.1) is installed into the Docker image from
+that same 3B revision. It is a build dependency, not a model checkpoint, and
+is not stored in the weight cache.
+
+Example images
+--------------
+examples/images/tiny_pd.png is a 512×768 crop of a public-domain NASA / ESA /
+Hubble photograph. Source and license are documented in examples/SOURCES.md.

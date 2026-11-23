@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "seedvr2_3b_image_smoke",
+      "input": {
+        "model": "3b",
+        "image_url": "https://raw.githubusercontent.com/prilojject/runpod-seedvr2-upscale/main/examples/images/tiny_pd.png",
+        "res_h": 512,
+        "res_w": 768,
+        "seed": 666,
+        "run_name": "hub-test-seedvr2"
+      },
+      "timeout": 1200000
+    }
+  ],
+  "config": {
+    "gpuTypeId": "NVIDIA GeForce RTX 4090",
+    "gpuCount": 1
+  }
+}

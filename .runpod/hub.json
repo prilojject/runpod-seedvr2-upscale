@@ -1,0 +1,176 @@
+{
+  "title": "SeedVR2 Upscale",
+  "description": "Batch upscale and restore videos and photos with official SeedVR2 (one-step diffusion, ICLR 2026). Send an image_url, a video_url, or a zip; get files of the same type and name plus results.json. Headless wrapper around official projects/inference_seedvr2_3b.py \u2014 no Gradio, no ComfyUI, not SeedVR v1.",
+  "type": "serverless",
+  "category": "video",
+  "iconUrl": "https://raw.githubusercontent.com/prilojject/runpod-seedvr2-upscale/main/.runpod/icon.png",
+  "config": {
+    "runsOn": "GPU",
+    "containerDiskInGb": 80,
+    "gpuCount": 1,
+    "gpuIds": "ADA_24,AMPERE_24,ADA_48_PRO,AMPERE_48,-NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb,-NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb",
+    "allowedCudaVersions": [
+      "13.4",
+      "13.3",
+      "13.2",
+      "13.1",
+      "13.0",
+      "12.9",
+      "12.8",
+      "12.7",
+      "12.6",
+      "12.5",
+      "12.4",
+      "12.3",
+      "12.2",
+      "12.1"
+    ],
+    "presets": [
+      {
+        "name": "Photo upscale (3B, 720x1280 area)",
+        "defaults": {
+          "MODEL": "3b",
+          "RES_H": 720,
+          "RES_W": 1280,
+          "SEED": 666
+        }
+      },
+      {
+        "name": "Quick test (one small image)",
+        "defaults": {
+          "MODEL": "3b",
+          "RES_H": 512,
+          "RES_W": 768,
+          "SEED": 666
+        }
+      },
+      {
+        "name": "Short video (optional, not Hub smoke)",
+        "defaults": {
+          "MODEL": "3b",
+          "RES_H": 720,
+          "RES_W": 1280,
+          "SEED": 666
+        }
+      }
+    ],
+    "env": [
+      {
+        "key": "MODEL",
+        "input": {
+          "name": "Model",
+          "type": "string",
+          "description": "SeedVR2 checkpoint. Default is official SeedVR2-3B (bf16 autocast, one-step, ~13.57 GiB, realistic on a 24 GB card for a small photo). 7B is a 48 GB+ option only and is not the smoke path. Weights are public (no token) and are cached on a network volume when one is attached; they are not baked into the image.",
+          "default": "3b",
+          "advanced": false,
+          "options": [
+            {
+              "label": "SeedVR2-3B (default)",
+              "value": "3b"
+            },
+            {
+              "label": "SeedVR2-7B (48 GB+ only)",
+              "value": "7b"
+            }
+          ]
+        }
+      },
+      {
+        "key": "MODEL_REVISION",
+        "input": {
+          "name": "Model revision",
+          "type": "string",
+          "description": "Pinned weights revision (do not switch to a floating main). Leave empty to use the default pin for the selected model (3B: 37255ff8cccfb01071b87f635a5948ca8d53117c).",
+          "default": "37255ff8cccfb01071b87f635a5948ca8d53117c",
+          "advanced": true
+        }
+      },
+      {
+        "key": "IMAGE_URL",
+        "input": {
+          "name": "Default single image URL",
+          "type": "string",
+          "description": "https URL of one image (jpg/png/webp/bmp/tiff). Usually sent per job (input.image_url).",
+          "default": "",
+          "advanced": false
+        }
+      },
+      {
+        "key": "VIDEO_URL",
+        "input": {
+          "name": "Default single video URL",
+          "type": "string",
+          "description": "https URL of one video (mp4/mov/webm/mkv/...). Usually sent per job (input.video_url). Long 720p clips are officially documented on H100 80 GB, not as a 4090 guarantee.",
+          "default": "",
+          "advanced": false
+        }
+      },
+      {
+        "key": "DATASET_URL",
+        "input": {
+          "name": "Default dataset URL",
+          "type": "string",
+          "description": "https URL of a .zip/.tar.gz of images and/or videos. Usually sent per job (input.dataset_url).",
+          "default": "",
+          "advanced": false
+        }
+      },
+      {
+        "key": "RES_H",
+        "input": {
+          "name": "Output height (area)",
+          "type": "number",
+          "description": "Official argparse res_h. The script resizes to the geometric mean sqrt(res_h*res_w) then crops to a multiple of 16 \u2014 not exactly 720x1280. Default 720.",
+          "default": 720,
+          "min": 16,
+          "max": 4096,
+          "advanced": false
+        }
+      },
+      {
+        "key": "RES_W",
+        "input": {
+          "name": "Output width (area)",
+          "type": "number",
+          "description": "Official argparse res_w. Used with res_h as the geometric-mean area. Default 1280.",
+          "default": 1280,
+          "min": 16,
+          "max": 4096,
+          "advanced": false
+        }
+      },
+      {
+        "key": "SEED",
+        "input": {
+          "name": "Seed",
+          "type": "number",
+          "description": "Official default is 666.",
+          "default": 666,
+          "min": 0,
+          "max": 2147483647,
+          "advanced": false
+        }
+      },
+      {
+        "key": "HF_OUTPUT_REPO",
+        "input": {
+          "name": "Hugging Face output repo",
+          "type": "string",
+          "description": "Optional 'user/repo' to upload the results zip + results.json. Needs HF_TOKEN with write access.",
+          "default": "",
+          "advanced": false
+        }
+      },
+      {
+        "key": "HF_TOKEN",
+        "input": {
+          "name": "HF_TOKEN",
+          "type": "string",
+          "description": "Hugging Face token with write access, only needed for HF_OUTPUT_REPO. SeedVR2 weights are public Apache-2.0 and do not need a token. Use a Runpod secret: {{ RUNPOD_SECRET_hf_token }}. Never put the token in the job input.",
+          "default": "",
+          "advanced": true
+        }
+      }
+    ]
+  }
+}

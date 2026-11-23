@@ -1,0 +1,13 @@
+{
+  "project": "prilojject/runpod-seedvr2-upscale",
+  "title": "SeedVR2 Upscale",
+  "description": "Runpod Serverless worker that batch-upscales videos and photos with official SeedVR2-3B (one-step, bf16, results.json). Headless official projects/inference_seedvr2_3b.py. No Gradio, no ComfyUI, not SeedVR v1.",
+  "docs": [
+    "README.md",
+    "llms.txt",
+    "AGENTS.md",
+    "openapi.yaml"
+  ],
+  "repo": "https://github.com/prilojject/runpod-seedvr2-upscale",
+  "upstream": "https://github.com/ByteDance-Seed/SeedVR"
+}

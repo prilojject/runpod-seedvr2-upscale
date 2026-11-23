@@ -1,0 +1,10 @@
+{
+  "input": {
+    "dry_run": true,
+    "image_url": "https://raw.githubusercontent.com/prilojject/runpod-seedvr2-upscale/main/examples/images/tiny_pd.png",
+    "model": "3b",
+    "res_h": 512,
+    "res_w": 768,
+    "seed": 666
+  }
+}

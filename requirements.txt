@@ -1,0 +1,10 @@
+# Worker deps on top of the official SeedVR2 stack installed in the Dockerfile.
+# torch 2.4.0+cu121, torchvision 0.19.0+cu121, torchaudio 2.4.0+cu121,
+# flash_attn 2.5.9.post1 and the official apex cp310/cu121 wheel are installed
+# there. Do not pin torch==2.3.0 from upstream requirements.txt — that conflicts
+# with the official README / apex wheel (python 3.10, torch 2.4.0, cuda 12.1).
+runpod==2.4.0
+boto3==1.44.9
+hf_transfer==0.1.9
+huggingface_hub>=0.26.0
+requests>=2.31
