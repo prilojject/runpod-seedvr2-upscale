@@ -62,7 +62,11 @@ def test_patch_inserts_fps_append_and_disables_color_fix():
         OFFICIAL_SNIPPET + "\n        if use_colorfix:\n            wavelet_reconstruction(sample, input)\n"
     )
     assert "fps_lists.append(out_fps if out_fps is not None else 24.0)" in patched
-    # The image branch now appends, so an image-only batch is no longer empty.
+    # Must be a sibling of `if sp_size > 1`, not dead code under the raise.
+    assert (
+        "                    raise ValueError(\"Sp size should be set to 1 for image inputs!\")\n"
+        "                fps_lists.append(out_fps if out_fps is not None else 24.0)"
+    ) in patched
     assert patched.index("fps_lists.append") < patched.index("else:")
     assert "if False:  # color_fix is S-Lab NC; never enable" in patched
     assert "if use_colorfix:" not in patched

@@ -39,7 +39,7 @@ _FPS_NEEDLE = (
 _FPS_PATCH = (
     "                if sp_size > 1:\n"
     "                    raise ValueError(\"Sp size should be set to 1 for image inputs!\")\n"
-    "                    fps_lists.append(out_fps if out_fps is not None else 24.0)"
+    "                fps_lists.append(out_fps if out_fps is not None else 24.0)"
 )
 
 _RUNNER = None
@@ -101,6 +101,18 @@ def patch_generation_loop_source(src: str) -> str:
         src = src.replace(_FPS_NEEDLE, _FPS_PATCH, 1)
     # Never run color fix, even if someone later drops color_fix.py into the image.
     src = src.replace("if use_colorfix:", "if False:  # color_fix is S-Lab NC; never enable")
+    # Official configure_runner leaves DiT (fp32 ~13.6 GiB) and VAE on CUDA
+    # together. generation_loop swaps them for 24GB cards, but without
+    # empty_cache the allocator can keep ~21 GiB allocated and OOM on the
+    # next 7–8 GiB workspace (what the 4090 r2 smoke hit).
+    src = src.replace(
+        'runner.dit.to("cpu")\n',
+        'runner.dit.to("cpu")\n        gc.collect()\n        torch.cuda.empty_cache()\n',
+    )
+    src = src.replace(
+        'runner.vae.to("cpu")\n',
+        'runner.vae.to("cpu")\n        gc.collect()\n        torch.cuda.empty_cache()\n',
+    )
     return src
 
 
@@ -338,6 +350,26 @@ def _get_runner(mod: ModuleType, model: str, sp_size: int):
         runner = mod.configure_runner(sp_size)
     finally:
         os.chdir(cwd)
+    # Free DiT VRAM before generation_loop's VAE encode (24GB / 4090).
+    try:
+        import gc
+        import torch
+        if hasattr(runner, "dit"):
+            runner.dit.requires_grad_(False).eval()
+            props = torch.cuda.get_device_properties(0) if torch.cuda.is_available() else None
+            # Official keeps fp32 weights + bf16 autocast. On <=24GB that
+            # barely fits next to the VAE; use bf16 weights on those cards.
+            if props is not None and props.total_memory <= 30 * (1024 ** 3):
+                runner.dit = runner.dit.to(dtype=torch.bfloat16)
+                log.info("cast DiT weights to bfloat16 for %.1f GiB card", props.total_memory / 1024 ** 3)
+            runner.dit.to("cpu")
+        if hasattr(runner, "vae"):
+            runner.vae.requires_grad_(False).eval()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception as exc:
+        log.warning("post-configure offload failed: %s", exc)
     _RUNNER = runner
     _RUNNER_KEY = key
     return runner
