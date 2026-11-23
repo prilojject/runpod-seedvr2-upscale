@@ -38,7 +38,7 @@ Wrap official `projects/inference_seedvr2_3b.py` (optionally `_7b.py`) in-proces
 ## Tests
 
 - Unit tests (`tests/`) must run without a GPU and without model weights.
-- The Hub smoke test is one case only: `seedvr2_3b_image_smoke` — 3B, one small public-domain image (`examples/images/tiny_pd.png`, documented in `examples/SOURCES.md`), `res_h=512` `res_w=768`, seed 666, RTX 4090, timeout 20 min. Success: a non-empty output image, larger than the source or with the declared side after the crop-16. Stop if spend approaches $3–4. Do not smoke 7B, sharp, long video, or `sp_size>1` on the paid Hub test.
+- The Hub smoke test is one case only: `seedvr2_3b_image_smoke` — 3B, one small public-domain image (`examples/images/tiny_pd.png`, documented in `examples/SOURCES.md`), `res_h=512` `res_w=768`, seed 666, RTX 4090, timeout 20 min. Success: a non-empty output image, larger than the source or with the declared side after the crop-16. Stop if spend approaches $3–4. Do not smoke 7B, sharp, long video, or `sp_size>1` on the paid Hub test. The paid Serverless smoke for v1.0.0 (23 Nov 2026, Asia/Bangkok) used SeedVR2-3B, `sample_steps=1`, the official NASA `~small.jpg` of `GSFC_20171208_Archive_e000842` (640×599) on an RTX 4090, execution ~78 s, spend ≈ $0.40, with the apex sm_90 fallback and DiT/VAE offload, and without a network volume. Do not run another paid GPU test for this publish. 7B and long 720p video were not smoked.
 - After a paid GPU test: delete the endpoint, pod/template and registry auth. Confirm with GraphQL that leftover smoke endpoints are gone. Leave protected pods `92anyumh6q7jrf` and `oejzh2afh8hcym` (and volumes `13faqbphuo`, `fv2c638zex`) untouched.
 
 ## Secrets

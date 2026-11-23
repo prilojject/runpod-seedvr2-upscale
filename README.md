@@ -95,11 +95,28 @@ Quick test (one small public-domain image, moderate output area — this is the 
 
 Input priority is job input > environment (Hub form) > defaults. Never put tokens in the job input; use Runpod secrets / env (`HF_TOKEN`, `BUCKET_*`).
 
+## Smoke test
+
+A paid Serverless smoke already ran on 23 Nov 2026 (Asia/Bangkok) on an **RTX 4090**. This v1.0.0 publish does not run another GPU test.
+
+- Model: **SeedVR2-3B**, `sample_steps=1`, bfloat16, seed 666
+- Input: the official NASA / ESA / Hubble public-domain `~small.jpg` of NASA ID `GSFC_20171208_Archive_e000842` (**640×599**), not the bundled 512×768 crop in `examples/images/tiny_pd.png`
+- Output: 640×592 (crop to a multiple of 16)
+- Job execution: **~78 s** (`executionTime` 77575 ms); spend **≈ $0.40**
+- The official apex wheel is **sm_90 only**, so this 4090 run used the PyTorch `LayerNorm` / `RMSNorm` fallback
+- **DiT/VAE offload** between steps is enabled on 24 GB cards
+- No network volume was attached, so the **~13.57 GiB** weights were downloaded on that cold start
+- **SeedVR2-7B** and long **720p** video were **not** smoked
+
+The Hub automated test (`seedvr2_3b_image_smoke` in `.runpod/tests.json`) still uses the bundled `tiny_pd.png` at `res_h=512` / `res_w=768`.
+
 ## FAQ
 
 **The official apex wheel and a 4090.** The prebuilt `apex-0.1-cp310-cp310-linux_x86_64.whl` in the SeedVR2-3B repo contains fused LayerNorm / RMSNorm kernels for **sm_90 (H100) only**. On an RTX 4090 (sm_89) the 3B weights load, then the first fused norm fails with `CUDA error: no kernel image is available for execution on the device`. This worker detects that and falls back to PyTorch `LayerNorm` / `RMSNorm` so the official 3B script can still run on a 4090. On H100 the official fused kernels are used unchanged.
 
-**Will a 100-frame 720p video fit on a 4090?** Not as a guarantee of the official script. The official README documents that regime on 1× H100 80 GB. This listing smokes a small photo at a moderate `res_h`/`res_w` on a 4090. Community ComfyUI tiling / FP8 / GGUF / BlockSwap is not mixed into the official path.
+**Why does the worker offload DiT and VAE on a 4090?** Official `configure_runner` places DiT and VAE on CUDA together. On 24 GB that combination OOMs. This worker offloads DiT to CPU, empties the CUDA cache after each swap, and casts DiT weights to bf16 on those cards. That offload was part of the paid 4090 smoke above.
+
+**Will a 100-frame 720p video fit on a 4090?** Not as a guarantee of the official script. The official README documents that regime on 1× H100 80 GB. This listing's paid smoke was a single 640×599 photo on a 4090. Long 720p video was not smoked. Community ComfyUI tiling / FP8 / GGUF / BlockSwap is not mixed into the official path.
 
 **Why is there no color fix?** The usual `color_fix.py` is S-Lab License 1.0, non-commercial. It is not included.
 
