@@ -34,10 +34,8 @@ def test_hub_json():
     assert hub["category"] in {"video", "image"}
     cfg = hub["config"]
     assert cfg["runsOn"] == "GPU" and cfg["containerDiskInGb"] == 80 and cfg["gpuCount"] == 1
-    assert cfg["gpuIds"].startswith("ADA_24,AMPERE_24,ADA_48_PRO,AMPERE_48")
-    assert "1g.24gb" in cfg["gpuIds"] and "2g.48gb" in cfg["gpuIds"]
-    # Image is torch 2.4.0+cu121 + sm_90-only apex / flash-attn 2.5.9: no Blackwell, CUDA ≤12.7.
-    cuda_cap = ["12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1"]
+    assert cfg["gpuCount"] == 1
+    cuda_cap = ["13.4", "13.3", "13.2", "13.1", "13.0", "12.9", "12.8"]
     assert cfg["allowedCudaVersions"] == cuda_cap
     blackwell_ids = [
         "NVIDIA GeForce RTX 5080",
@@ -56,8 +54,11 @@ def test_hub_json():
     ]
     ids = cfg["gpuIds"].split(",")
     assert ids[:4] == ["ADA_24", "AMPERE_24", "ADA_48_PRO", "AMPERE_48"]
+    # v1.0.3: include catalog Blackwell IDs; do not exclude them with "-".
     for gpu in blackwell_ids:
-        assert f"-{gpu}" in ids, gpu
+        assert gpu in ids, gpu
+        assert f"-{gpu}" not in ids, gpu
+    assert "1g.24gb" in cfg["gpuIds"] and "2g.48gb" in cfg["gpuIds"]
     assert "NVIDIA RTX 5000 Ada Generation" not in cfg["gpuIds"]
     known = {p.env for p in PARAMS if p.env} | EXTRA_ENV
     keys = [e["key"] for e in cfg["env"]]
@@ -91,9 +92,10 @@ def test_tests_json():
     assert t["config"]["gpuTypeId"] == "NVIDIA GeForce RTX 4090"
     assert t["config"]["gpuCount"] == 1
     assert t["config"]["allowedCudaVersions"] == [
-        "12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1"
+        "13.4", "13.3", "13.2", "13.1", "13.0", "12.9", "12.8"
     ]
-    assert "12.8" not in t["config"]["allowedCudaVersions"]
+    assert "12.7" not in t["config"]["allowedCudaVersions"]
+    assert "12.1" not in t["config"]["allowedCudaVersions"]
     assert len(t["tests"]) == 1
     case = t["tests"][0]
     assert case["name"] == "seedvr2_3b_image_smoke"
@@ -181,3 +183,20 @@ def test_requirements_do_not_pin_torch_230():
             continue
         assert "torch==2.3.0" not in s
     assert "runpod" in req
+
+
+def test_runpod_dockerfile_upgrades_torch_for_blackwell():
+    """Hub overlay swaps torch 2.7.1+cu128; do not require sm_89 (cu128 wheels omit it)."""
+    text = open(os.path.join(ROOT, ".runpod", "Dockerfile"), encoding="utf-8").read()
+    assert "sha256:a9e1c48dae820ae642a4136301b7ff186834ae5d54931374b04d2f2bc0a28f54" in text
+    assert "FROM ghcr.io/prilojject/runpod-seedvr2-upscale:v1.0.0@sha256:" in text
+    assert "torch==2.7.1" in text and "torchvision==0.22.1" in text and "torchaudio==2.7.1" in text
+    assert "https://download.pytorch.org/whl/cu128" in text
+    assert "torch.version.cuda == '12.8'" in text or 'torch.version.cuda == "12.8"' in text
+    assert "sm_86" in text and "sm_90" in text and "sm_100" in text and "sm_120" in text
+    # LLaMA-Factory v1.0.1 bug: cu128 wheels do not list sm_89.
+    assert "sm_89" not in text or "do not require sm_89" in text.lower() or "Do not require sm_89" in text
+    assert "assert" in text and "sm_89" in text and "in flags" and "sm_89' in flags" not in text.replace("do not require sm_89", "").replace("Do not require sm_89", "")
+    assert "COPY handler.py /app/handler.py" in text
+    assert "COPY src /app/src" in text
+    assert "pip uninstall" in text and "flash-attn" in text and "apex" in text

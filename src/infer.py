@@ -2,6 +2,12 @@
 
 Patches the image-only fps_lists bug in the official write loop, forces
 use_colorfix=False, and never imports or runs SeedVR v1 scripts.
+
+On the Hub overlay (torch 2.7.1+cu128) the official flash-attn 2.5.9 /
+apex wheels are removed. If a torch-2.7 flash-attn wheel is missing or
+has no kernel for the current GPU, attention uses a PyTorch SDPA varlen
+fallback. Apex fused norms still remap to PyTorch LayerNorm / RMSNorm
+when the official sm_90-only wheel cannot run.
 """
 
 from __future__ import annotations
@@ -46,6 +52,112 @@ _RUNNER = None
 _RUNNER_KEY: tuple | None = None
 _OFFICIAL_MOD: ModuleType | None = None
 _NORM_NOTE: str | None = None
+
+_ATTN_NOTE: str | None = None
+
+
+def flash_attn_varlen_sdpa(
+    q,
+    k,
+    v,
+    cu_seqlens_q,
+    cu_seqlens_k,
+    max_seqlen_q=None,
+    max_seqlen_k=None,
+    dropout_p: float = 0.0,
+    softmax_scale=None,
+    causal: bool = False,
+    **kwargs,
+):
+    """PyTorch SDPA stand-in for flash_attn_varlen_func.
+
+    Official SeedVR calls this with packed ``(L, H, D)`` q/k/v and
+    ``cu_seqlens_*``. TorchAttention cannot be dropped in: SDPA wants
+    ``(B, H, S, D)``. We run one SDPA per packed sequence and cat.
+    Extra flash-attn kwargs (e.g. deterministic) are ignored.
+    """
+    import torch
+    import torch.nn.functional as F
+
+    cu_q = cu_seqlens_q.tolist() if hasattr(cu_seqlens_q, "tolist") else list(cu_seqlens_q)
+    cu_k = cu_seqlens_k.tolist() if hasattr(cu_seqlens_k, "tolist") else list(cu_seqlens_k)
+    if len(cu_q) != len(cu_k) or len(cu_q) < 2:
+        raise ValueError("cu_seqlens_q/k must be the same length and contain at least one span")
+    outs = []
+    for i in range(len(cu_q) - 1):
+        qs, qe = int(cu_q[i]), int(cu_q[i + 1])
+        ks, ke = int(cu_k[i]), int(cu_k[i + 1])
+        qi = q[qs:qe].transpose(0, 1).unsqueeze(0)
+        ki = k[ks:ke].transpose(0, 1).unsqueeze(0)
+        vi = v[ks:ke].transpose(0, 1).unsqueeze(0)
+        oi = F.scaled_dot_product_attention(
+            qi, ki, vi, dropout_p=dropout_p, is_causal=causal, scale=softmax_scale,
+        )
+        outs.append(oi.squeeze(0).transpose(0, 1))
+    return torch.cat(outs, dim=0)
+
+
+def _flash_attn_has_device_kernel(device_index: int = 0) -> bool:
+    """True if imported flash_attn looks like it ships a kernel for this GPU."""
+    try:
+        import glob
+        import importlib.util
+        import torch
+        import flash_attn  # noqa: F401
+        if not torch.cuda.is_available():
+            return True
+        cap = torch.cuda.get_device_capability(device_index)
+        token = f"sm_{cap[0]}{cap[1]}".encode()
+        spec = importlib.util.find_spec("flash_attn")
+        roots = []
+        if spec and spec.origin:
+            roots.append(os.path.dirname(spec.origin))
+            roots.append(os.path.dirname(os.path.dirname(spec.origin)))
+        hits = []
+        for root in roots:
+            hits.extend(glob.glob(os.path.join(root, "**", "*.so"), recursive=True))
+        if not hits:
+            return False
+        for path in hits:
+            try:
+                if token in open(path, "rb").read():
+                    return True
+            except OSError:
+                continue
+        return False
+    except Exception:
+        return False
+
+
+def install_flash_attn_sdpa_fallback() -> str | None:
+    """Make official ``from flash_attn import flash_attn_varlen_func`` safe.
+
+    Official ``FlashAttentionVarlen`` imports flash_attn at module level and
+    always uses the varlen API. After the torch 2.7.1 swap the torch-2.4
+    wheel is gone; a torch-2.7 wheel may still lack Blackwell kernels.
+    """
+    global _ATTN_NOTE
+    use_sdpa = True
+    try:
+        import flash_attn  # noqa: F401
+        if _flash_attn_has_device_kernel():
+            use_sdpa = False
+    except Exception:
+        use_sdpa = True
+    if not use_sdpa:
+        _ATTN_NOTE = None
+        return None
+    import types
+    existing = sys.modules.get("flash_attn")
+    if existing is None:
+        existing = types.ModuleType("flash_attn")
+        sys.modules["flash_attn"] = existing
+    existing.flash_attn_varlen_func = flash_attn_varlen_sdpa  # type: ignore[attr-defined]
+    msg = "flash-attn unavailable or has no kernel for this GPU; using PyTorch SDPA varlen fallback"
+    _ATTN_NOTE = msg
+    log.warning(msg)
+    return msg
+
 
 
 class InferError(RuntimeError):
@@ -190,6 +302,10 @@ def _load_official_module(model: str) -> ModuleType:
     if color_fix_present():
         # Must never ship; if it appears at runtime, refuse to enable it.
         log.warning("color_fix.py is present under %s — it will not be used", COLOR_FIX_RELPATH)
+
+    # Official attention.py does `from flash_attn import flash_attn_varlen_func`
+    # at import time. Install the SDPA stub first if flash-attn cannot run here.
+    install_flash_attn_sdpa_fallback()
 
     if SEEDVR_DIR not in sys.path:
         sys.path.insert(0, SEEDVR_DIR)
@@ -340,6 +456,7 @@ def _get_runner(mod: ModuleType, model: str, sp_size: int):
         return _RUNNER
     _prepare_distributed_env()
     _idempotent_init_torch(mod)
+    install_flash_attn_sdpa_fallback()
     global _NORM_NOTE
     _NORM_NOTE = patch_fused_norms_if_needed()
     if _NORM_NOTE:
@@ -448,4 +565,6 @@ def run_upscale(
     }
     if _NORM_NOTE:
         out["apex_fallback"] = _NORM_NOTE
+    if _ATTN_NOTE:
+        out["attn_fallback"] = _ATTN_NOTE
     return out
