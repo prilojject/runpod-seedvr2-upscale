@@ -128,6 +128,10 @@ The Hub automated test (`seedvr2_3b_image_smoke` in `.runpod/tests.json`) still 
 
 **Are the weights baked into the image?** No. Attach a network volume to cache them under `/runpod-volume/seedvr2/models/`.
 
+## Changelog
+
+- **v1.0.2** (23 Nov 2026, Asia/Bangkok): Re-run the Hub build/test. v1.0.1 could not start because no free GPU was available (RTX 4090; CUDA capped at 12.1–12.7). The image, CUDA caps, and gpuIds are unchanged.
+
 ## License
 
 - Worker code: [MIT](LICENSE)
