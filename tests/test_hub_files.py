@@ -89,7 +89,7 @@ def test_hub_json():
 
 def test_tests_json():
     t = load("tests.json")
-    assert t["config"]["gpuTypeId"] == "NVIDIA GeForce RTX 4090"
+    assert t["config"]["gpuTypeId"] == "NVIDIA H100 80GB HBM3"
     assert t["config"]["gpuCount"] == 1
     assert t["config"]["allowedCudaVersions"] == [
         "13.4", "13.3", "13.2", "13.1", "13.0", "12.9", "12.8"

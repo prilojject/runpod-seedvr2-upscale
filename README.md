@@ -130,6 +130,7 @@ The Hub automated test (`seedvr2_3b_image_smoke` in `.runpod/tests.json`) still 
 
 ## Changelog
 
+- **v1.0.4** (23 Nov 2026, Asia/Bangkok): Re-run the Hub build/test. v1.0.3 initialized but found no free RTX 4090 or the Hub fallbacks (B300 SXM6 AC MIG 1g.34gb / RTX PRO 4500 Blackwell). `.runpod/tests.json` now prefers **NVIDIA H100 80GB HBM3** (80 GB; GraphQL `lowestPrice` stockStatus **Medium** on secure cloud — the only ≥24 GB type with High/Medium stock). CUDA 12.8–13.4 and the image are unchanged.
 - **v1.0.3** (23 Nov 2026, Asia/Bangkok): Hub overlay installs torch 2.7.1+cu128 so the listing can run on Ada, Ampere, and Blackwell. CUDA 12.8–13.4; Blackwell GPU IDs are allowed. Official flash-attn 2.5.9 / apex wheels are removed on the overlay; attention falls back to PyTorch SDPA when needed. Root Dockerfile and the v1.0.0 digest are unchanged.
 - **v1.0.2** (23 Nov 2026, Asia/Bangkok): Re-run the Hub build/test. v1.0.1 could not start because no free GPU was available (RTX 4090; CUDA capped at 12.1–12.7). The image, CUDA caps, and gpuIds are unchanged.
 
