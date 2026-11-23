@@ -34,11 +34,31 @@ def test_hub_json():
     assert hub["category"] in {"video", "image"}
     cfg = hub["config"]
     assert cfg["runsOn"] == "GPU" and cfg["containerDiskInGb"] == 80 and cfg["gpuCount"] == 1
-    assert "ADA_24" in cfg["gpuIds"] and "Blackwell" in cfg["gpuIds"] and cfg["gpuIds"].startswith("ADA_24")
+    assert cfg["gpuIds"].startswith("ADA_24,AMPERE_24,ADA_48_PRO,AMPERE_48")
     assert "1g.24gb" in cfg["gpuIds"] and "2g.48gb" in cfg["gpuIds"]
-    cuda = cfg["allowedCudaVersions"]
-    assert "12.1" in cuda
-    assert "12.8" in cuda or "12.6" in cuda
+    # Image is torch 2.4.0+cu121 + sm_90-only apex / flash-attn 2.5.9: no Blackwell, CUDA ≤12.7.
+    cuda_cap = ["12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1"]
+    assert cfg["allowedCudaVersions"] == cuda_cap
+    blackwell_ids = [
+        "NVIDIA GeForce RTX 5080",
+        "NVIDIA GeForce RTX 5090",
+        "NVIDIA B200",
+        "NVIDIA B300 SXM6 AC",
+        "NVIDIA RTX PRO 4000 Blackwell",
+        "NVIDIA RTX PRO 4500 Blackwell",
+        "NVIDIA RTX PRO 4500 Blackwell Server Edition",
+        "NVIDIA RTX PRO 5000 Blackwell",
+        "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb",
+        "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb",
+        "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+        "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+    ]
+    ids = cfg["gpuIds"].split(",")
+    assert ids[:4] == ["ADA_24", "AMPERE_24", "ADA_48_PRO", "AMPERE_48"]
+    for gpu in blackwell_ids:
+        assert f"-{gpu}" in ids, gpu
+    assert "NVIDIA RTX 5000 Ada Generation" not in cfg["gpuIds"]
     known = {p.env for p in PARAMS if p.env} | EXTRA_ENV
     keys = [e["key"] for e in cfg["env"]]
     assert len(keys) == len(set(keys))
@@ -70,6 +90,10 @@ def test_tests_json():
     t = load("tests.json")
     assert t["config"]["gpuTypeId"] == "NVIDIA GeForce RTX 4090"
     assert t["config"]["gpuCount"] == 1
+    assert t["config"]["allowedCudaVersions"] == [
+        "12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1"
+    ]
+    assert "12.8" not in t["config"]["allowedCudaVersions"]
     assert len(t["tests"]) == 1
     case = t["tests"][0]
     assert case["name"] == "seedvr2_3b_image_smoke"

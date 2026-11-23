@@ -42,14 +42,14 @@ Delivered as a zip to a Hugging Face repo, an S3-compatible bucket, a presigned 
 | CFG | `cfg_scale=1.0` | Official `generation_loop` default |
 | `sp_size` | **1** | Required for images. Multi-GPU (`sp_size=4`) for 1080p/2K is not the v1 path |
 | Seed | **666** | Official default |
-| GPU | **RTX 4090 24 GB** for smoke / a small photo or a short clip at a moderate size | Official README: **1× H100 80 GB** can handle videos with **100×720×1280**; 4× H100-80G for 1080p and 2K. That 100-frame 720p regime is **not** a 4090 guarantee |
+| GPU | **RTX 4090 24 GB** for smoke / a small photo or a short clip at a moderate size | Official README: **1× H100 80 GB** can handle videos with **100×720×1280**; 4× H100-80G for 1080p and 2K. That 100-frame 720p regime is **not** a 4090 guarantee. **Blackwell is not supported** (see below). |
 | `refresh_worker` | **false** | The model stays in worker memory |
 
 Public 3B weights (~13.57 GiB, no token, Apache-2.0) are downloaded at job start and cached under `/runpod-volume/seedvr2/models/` when a network volume is attached. They are **not** baked into the image. Without a volume, every cold start re-downloads them — attach a volume for anything other than a one-off test.
 
 Upstream SeedVR code is pinned to SHA `e4de8c24441a67e1b7df56abea10645059bb1185` (the official repo has no tags). That SHA is the **upstream** pin only. Releases of *this* repo use `targetCommitish=main`.
 
-The image stack is **Python 3.10 + torch 2.4.0+cu121 + the official apex `cp310` wheel**, as in the SeedVR README. Upstream `requirements.txt` pins `torch==2.3.0`, which conflicts with that wheel — this worker follows the README / wheel, not 2.3.0, and does not upgrade to torch 2.7.
+The image stack is **Python 3.10 + torch 2.4.0+cu121 + the official apex `cp310` wheel + flash-attn 2.5.9**, as in the SeedVR README. Upstream `requirements.txt` pins `torch==2.3.0`, which conflicts with that wheel — this worker follows the README / wheel, not 2.3.0, and does not upgrade to torch 2.7 or a Blackwell-capable CUDA build. The host driver must be **CUDA ≤ 12.7**. **Blackwell is not supported.** 4090 / CUDA 12.1–12.7 supply may be limited.
 
 Optional checkpoint (same Apache-2.0 license, **not** the smoke path): `ByteDance-Seed/SeedVR2-7B` @ `eb0c4281d41ba3767d4f14370f0e37e9e9180c16` (~31.62 GiB without sharp). Raw 7B weights are already ~30.7 GiB; even with bf16 autocast this is a **48 GB+** class, not a 24 GB smoke. The `seedvr2_ema_7b_sharp.pth` checkpoint is **not** downloaded with the 7B option (it would roughly double the download). 7B has no `pos_emb.pt` / `neg_emb.pt`; the worker takes those from the 3B snapshot.
 
@@ -113,6 +113,8 @@ The Hub automated test (`seedvr2_3b_image_smoke` in `.runpod/tests.json`) still 
 ## FAQ
 
 **The official apex wheel and a 4090.** The prebuilt `apex-0.1-cp310-cp310-linux_x86_64.whl` in the SeedVR2-3B repo contains fused LayerNorm / RMSNorm kernels for **sm_90 (H100) only**. On an RTX 4090 (sm_89) the 3B weights load, then the first fused norm fails with `CUDA error: no kernel image is available for execution on the device`. This worker detects that and falls back to PyTorch `LayerNorm` / `RMSNorm` so the official 3B script can still run on a 4090. On H100 the official fused kernels are used unchanged.
+
+**Is Blackwell supported?** No. This image is torch 2.4.0+cu121 with that sm_90-only apex wheel and flash-attn 2.5.9; it has no Blackwell kernels. A Hub test that falls back to a Blackwell GPU fails with `no kernel image is available`. The listing caps `allowedCudaVersions` at **12.7** and excludes Blackwell GPU IDs so that cannot happen. The host driver must be CUDA **≤ 12.7**. Because of that cap, 4090 / CUDA 12.1–12.7 supply may be limited. This listing does not upgrade torch to fix Blackwell.
 
 **Why does the worker offload DiT and VAE on a 4090?** Official `configure_runner` places DiT and VAE on CUDA together. On 24 GB that combination OOMs. This worker offloads DiT to CPU, empties the CUDA cache after each swap, and casts DiT weights to bf16 on those cards. That offload was part of the paid 4090 smoke above.
 

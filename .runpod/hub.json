@@ -1,6 +1,6 @@
 {
   "title": "SeedVR2 Upscale",
-  "description": "Batch upscale and restore videos and photos with official SeedVR2 (one-step diffusion, ICLR 2026). Send an image_url, a video_url, or a zip; get files of the same type and name plus results.json. Headless wrapper around official projects/inference_seedvr2_3b.py \u2014 no Gradio, no ComfyUI, not SeedVR v1.",
+  "description": "Batch upscale and restore videos and photos with official SeedVR2 (one-step diffusion, ICLR 2026). Send an image_url, a video_url, or a zip; get files of the same type and name plus results.json. Headless wrapper around official projects/inference_seedvr2_3b.py — no Gradio, no ComfyUI, not SeedVR v1.",
   "type": "serverless",
   "category": "video",
   "iconUrl": "https://raw.githubusercontent.com/prilojject/runpod-seedvr2-upscale/main/.runpod/icon.png",
@@ -8,15 +8,8 @@
     "runsOn": "GPU",
     "containerDiskInGb": 80,
     "gpuCount": 1,
-    "gpuIds": "ADA_24,AMPERE_24,ADA_48_PRO,AMPERE_48,-NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb,-NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb",
+    "gpuIds": "ADA_24,AMPERE_24,ADA_48_PRO,AMPERE_48,-NVIDIA GeForce RTX 5080,-NVIDIA GeForce RTX 5090,-NVIDIA B200,-NVIDIA B300 SXM6 AC,-NVIDIA RTX PRO 4000 Blackwell,-NVIDIA RTX PRO 4500 Blackwell,-NVIDIA RTX PRO 4500 Blackwell Server Edition,-NVIDIA RTX PRO 5000 Blackwell,-NVIDIA RTX PRO 6000 Blackwell Server Edition,-NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb,-NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb,-NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition,-NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
     "allowedCudaVersions": [
-      "13.4",
-      "13.3",
-      "13.2",
-      "13.1",
-      "13.0",
-      "12.9",
-      "12.8",
       "12.7",
       "12.6",
       "12.5",
@@ -120,7 +113,7 @@
         "input": {
           "name": "Output height (area)",
           "type": "number",
-          "description": "Official argparse res_h. The script resizes to the geometric mean sqrt(res_h*res_w) then crops to a multiple of 16 \u2014 not exactly 720x1280. Default 720.",
+          "description": "Official argparse res_h. The script resizes to the geometric mean sqrt(res_h*res_w) then crops to a multiple of 16 — not exactly 720x1280. Default 720.",
           "default": 720,
           "min": 16,
           "max": 4096,

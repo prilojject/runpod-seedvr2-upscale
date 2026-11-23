@@ -16,6 +16,7 @@ Wrap official `projects/inference_seedvr2_3b.py` (optionally `_7b.py`) in-proces
 
 - Python **3.10**, `torch==2.4.0+cu121`, official `apex-0.1-cp310-cp310-linux_x86_64.whl` (python=3.10, torch=2.4.0, cuda=12.1), `flash_attn==2.5.9.post1` from a prebuilt wheel.
 - Upstream `requirements.txt` pins `torch==2.3.0` — that conflicts with the README / apex wheel. Follow the README / wheel, not 2.3.0. Do not upgrade to torch 2.7 / cu128. Do not install `environment.yml` wholesale.
+- **Blackwell is not supported.** Do not upgrade torch or rebuild the image to add it. Hub `allowedCudaVersions` in both `.runpod/hub.json` and `.runpod/tests.json` must stay `12.7` down to `12.1` (no 12.8+). `tests.json` `gpuTypeId` stays `NVIDIA GeForce RTX 4090`. `hub.json` `gpuIds` keeps the ADA_24 / AMPERE_24 / ADA_48_PRO / AMPERE_48 pools and a `-<id>` exclusion for every catalog Blackwell ID (5080, 5090, B200, B300, RTX PRO 4000/4500/5000/6000 Blackwell, including the 6000 Server Edition MIG slices). The host driver must be CUDA ≤12.7; 4090 / CUDA 12.1–12.7 supply may be limited.
 
 ## Defaults to keep
 
